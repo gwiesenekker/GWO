@@ -153,7 +153,7 @@ local char *moves_move2string(moves_t *self, int imove)
   return(self->move_string);
 }
 
-void create_moves_list(moves_t *self)
+void create_moves(moves_t *self)
 {
   self->nmoves = 0;
   //similar links to functions for gen_moves, do_move and undo_move
