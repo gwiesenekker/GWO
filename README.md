@@ -173,7 +173,7 @@ moves.gen_moves(&moves); //the function pointer has been set in the constructor
 
 for (int imove = 0; imove < moves.nmoves; imove++)
 {
-  move.do_move(&moves, imove); //you have to pass the 'self' object as an argument 
+  moves.do_move(&moves, imove); //you have to pass the 'self' object as an argument 
   ..
   if (bug)
   {
