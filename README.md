@@ -182,6 +182,8 @@ for (int imove = 0; imove < moves.nmoves; imove++)
   ..
   moves_t moves2;
 
+create_moves(&moves); //call the constructor yourself
+
   moves2.gen_moves(&moves2); //you can still have bugs like moves2->gen_moves(&moves);
   
   for (int jmove = 0; jmove < moves2.nmoves; jmove++)
