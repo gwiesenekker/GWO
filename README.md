@@ -92,7 +92,7 @@ for (int imove = 0; imove < moves.nmoves; imove++)
     fprintf(stderr, "%s", moves.move_string);
   }
   ..
-  undo_move(moves, imove, moves.undo);
+  undo_move(&moves, imove, moves.undo);
 }
 ```
 
@@ -116,16 +116,16 @@ for (int imove = 0; imove < moves.nmoves; imove++)
   ..
   moves_t moves2;
 
-  generate_moves(moves2);
+  generate_moves(&moves2);
   
   for (int jmove = 0; jmove < moves2.nmoves; jmove++)
   { 
-    do_move(moves2, jmove, moves.undo); //Oops should be moves2.undo here
+    do_move(&moves2, jmove, moves.undo); //Oops should be moves2.undo here
     ..
-    undo_move(moves2, jmove, moves.undo); //Oops should be moves2.undo here
+    undo_move(&moves2, jmove, moves.undo); //Oops should be moves2.undo here
   }
   ..
-  undo_move(moves, imove, moves.undo);
+  undo_move(&moves, imove, moves.undo);
 }
 ```
 
@@ -177,7 +177,7 @@ for (int imove = 0; imove < moves.nmoves; imove++)
   ..
   if (bug)
   {
-    fprintf(stderr, "%s", moves->move_string(moves, imove));
+    fprintf(stderr, "%s", moves.move2string(&moves, imove));
   }
   ..
   moves_t moves2;
@@ -186,12 +186,12 @@ for (int imove = 0; imove < moves.nmoves; imove++)
   
   for (int jmove = 0; jmove < moves2.nmoves; jmove++)
   { 
-    moves2.do_move(moves2, jmove);
+    moves2.do_move(&moves2, jmove);
     ..
-    moves2.undo_move(moves2, jmove)
+    moves2.undo_move(&moves2, jmove)
   }
   ..
-  moves.undo_move(moves, imove);
+  moves.undo_move(&moves, imove);
 }
 ```
 
@@ -203,13 +203,11 @@ Let us generalize this approach now for the main 'objects' in my draughts progra
 //header
 //generic class object
 
-typedef void *(*ctor_t)(void); //constructor
+typedef void *(*ctor_t)(void); //generic constructor
 
-typedef int (*iter_t)(void *); //iterator
+typedef int (*iter_t)(void *); //generic iterator
 
-//object methods
-
-typedef void (*pter_t)(void *); //prints object
+typedef void (*pter_t)(void *); //generic printer
 
 typedef struct class
 {
@@ -222,9 +220,8 @@ typedef struct class
 
   ctor_t objects_ctor; //constructor
   iter_t objects_iter; //iterator
-  pter_t objects_pter; //printer
 
-  PTHREAD_MUTEX_T objects_mutex; //mutex to lock object creation
+  PTHREAD_MUTEX_T objects_mutex; //mutex makes object creation and iteration thread-safe
 } class_t;
 
 //a class
@@ -260,7 +257,7 @@ local int construct_objects(void *self, class_t *class)
 
 //you initialize a class by calling init_class
 //ctor is a pointer to the constructor for objects of the class
-//iter is a is called when iterating over all objects of the class
+//iter is a pointer to the iterator and is called when iterating over all objects of the class
 //init_class registers the class constructor construct_objects
 
 class_t *init_class(int nobjects_max, ctor_t ctor, iter_t iter)
@@ -300,6 +297,8 @@ class_t *init_class(int nobjects_max, ctor_t ctor, iter_t iter)
 
 void iterate_class(class_t *class)
 {
+  PTHREAD_MUTEX_LOCK(class->objects_mutex);
+
   BUG(class->objects_iter == NULL)
 
   int nerrors = 0;
@@ -308,6 +307,8 @@ void iterate_class(class_t *class)
     nerrors += class->objects_iter(class->objects[iobject]);
  
   BUG(nerrors > 0)
+  
+  PTHREAD_MUTEX_UNLOCK(class->objects_mutex);
 }
 
 //example
@@ -327,13 +328,12 @@ typedef struct
 
   char object_stamp[LINE_MAX];
 
-  pter_t printf_object;
- 
   iter_t iterate_object;
 
   //specific methods
 
-  //(none)
+  pter_t printf_object;
+
 } my_object_t;
 
 //the object printer
