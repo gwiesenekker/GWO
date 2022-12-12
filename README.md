@@ -208,9 +208,9 @@ Let us generalize this approach now for the main 'objects' in my draughts progra
 //a generic constructor. The generic constructor is registered wih the class object
 //so that you can initialize an object using the syntax class_object->ctor(),
 //but this is more a matter of taste, you could also register the object constructor
-//with the object and initialize an object using the syntax object->ctor()
+//with the object and initialize an object using the syntax object.ctor()
 //if the object constructor has arguments you cannot register the constructor with the class object
-//you have to initialize the object using the syntax object->ctor(..)
+//you have to initialize the object using the syntax object.ctor(..)
 
 typedef void *(*ctor_t)(void);
 
