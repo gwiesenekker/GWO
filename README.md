@@ -205,11 +205,24 @@ Let us generalize this approach now for the main 'objects' in my draughts progra
 //header
 //generic class object
 
-typedef void *(*ctor_t)(void); //generic constructor
+//a generic constructor. The generic constructor is registered wih the class object
+//so that you can initialize an object using the syntax class_object->ctor(),
+//but this is more a matter of taste, you could also register the object constructor
+//with the object and initialize an object using the syntax object->ctor()
+//if the object constructor has arguments you cannot register the constructor with the class object
+//you have to initialize the object using the syntax object->ctor(..)
 
-typedef int (*iter_t)(void *); //generic iterator
+typedef void *(*ctor_t)(void);
 
-typedef void (*pter_t)(void *); //generic printer
+//a generic iterator. The generic iterator is registered wih the class object
+//so that the class object can iterate over the objects.
+
+typedef int (*iter_t)(void *);
+
+//the generic printer is not registered with the class but with the object
+//as not all classes/objects need a printer
+
+typedef void (*pter_t)(void *);
 
 typedef struct class
 {
