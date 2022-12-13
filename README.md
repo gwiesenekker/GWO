@@ -166,7 +166,7 @@ moves_t *create_moves(void)
 {
   moves_t *self;
   
-  self = MALLOC(sizeof(moves_t));
+  self = (moves_t *) MALLOC(sizeof(moves_t));
   self->nmoves = 0;
   self->moves2string = moves_moves2string;
   return(self);
