@@ -259,7 +259,7 @@ typedef struct class
 //it returns the object_id.
 //as the class keeps track of all created objects the class could also delete
 //them all when they are no longer needed,
-//but this is not needed or the main objects of my program
+//but this is not needed for the main objects of my program
 //object_id can be used to create logical names for derived properties such as
 //log-0.txt for the log-file of the first thread object
 //log-1.txt for the log-file of the second thread object
