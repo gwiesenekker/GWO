@@ -159,6 +159,19 @@ void create_moves(moves_t *self)
   //similar links to functions for gen_moves, do_move and undo_move
   self->move2string = moves_move2string;
 }
+
+//in OO style you could also use malloc() to create the object but remember you have to free it later
+/*
+moves_t *create_moves(void)
+{
+  moves_t *self;
+  
+  self = MALLOC(sizeof(moves_t));
+  self->nmoves = 0;
+  self->moves2string = moves_moves2string;
+  return(self);
+}
+*/
 ```
 
 OO languages will call the constructor for you, but now you have to do it yourself. Also you have to pass the 'self' object as an argument to the methods.
@@ -182,7 +195,7 @@ for (int imove = 0; imove < moves.nmoves; imove++)
   ..
   moves_t moves2;
 
-  create_moves(&moves); //call the constructor yourself
+  create_moves(&moves2); //call the constructor yourself
 
   moves2.gen_moves(&moves2); //you can still have bugs like moves2->gen_moves(&moves);
   
@@ -207,10 +220,9 @@ Let us generalize this approach now for the main 'objects' in my draughts progra
 
 //a generic constructor. The generic constructor is registered wih the class object
 //so that you can initialize an object using the syntax class_object->ctor(),
-//but this is more a matter of taste, you could also register the object constructor
-//with the object and initialize an object using the syntax object.ctor()
+//but this is more a matter of taste, you could also call the constructor directly as in the example above.
 //if the object constructor has arguments you cannot register the constructor with the class object
-//you have to initialize the object using the syntax object.ctor(..)
+//you have to define and call the constructor yourself.
 
 typedef void *(*ctor_t)(void);
 
@@ -245,6 +257,9 @@ typedef struct class
 //the class constructor construct_objects registers a created object
 //in the class so that the class_iterator can loop over all objects and
 //it returns the object_id.
+//as the class keeps track of all created objects the class could also delete
+//them all when they are no longer needed,
+//but this is not needed or the main objects of my program
 //object_id can be used to create logical names for derived properties such as
 //log-0.txt for the log-file of the first thread object
 //log-1.txt for the log-file of the second thread object
