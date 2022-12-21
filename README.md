@@ -171,6 +171,8 @@ moves_t *create_moves(void)
   self->moves2string = moves_moves2string;
   return(self);
 }
+..
+moves_t *moves = create_moves();
 */
 ```
 
