@@ -242,7 +242,7 @@ typedef void (*pter_t)(void *);
 
 typedef struct class
 {
-  int (*construct_objects)(void *, struct class *);  //class constructor
+  int (*register_object)(void *, struct class *);  //class 'constructor'
 
   int nobjects_max;
   int nobjects;
@@ -258,7 +258,7 @@ typedef struct class
 //a class
 //objects are derived from a class
 
-//the class constructor construct_objects registers a created object
+//the class 'constructor' register_object registers a created object
 //in the class so that the class_iterator can loop over all objects and
 //it returns the object_id.
 //as the class keeps track of all created objects the class could also delete
@@ -268,23 +268,23 @@ typedef struct class
 //log-0.txt for the log-file of the first thread object
 //log-1.txt for the log-file of the second thread object
 //etc.
-//you call the class constructor from the object constructor
+//you call the class 'constructor' from the object constructor
 
-local int construct_objects(void *self, class_t *class)
+local int register_object(class_t *self, void *object)
 {
-  PTHREAD_MUTEX_LOCK(class->objects_mutex);
+  PTHREAD_MUTEX_LOCK(self->objects_mutex);
 
-  BUG(class->nobjects >= class->nobjects_max)
+  BUG(self->nobjects >= self->nobjects_max)
 
-  int iobject = class->nobjects;
+  int iobject = self->nobjects;
 
   //keep track of objects in class
 
-  class->objects[iobject] = self;
+  self->objects[iobject] = object;
 
-  class->nobjects++;
+  self->nobjects++;
 
-  PTHREAD_MUTEX_UNLOCK(class->objects_mutex);
+  PTHREAD_MUTEX_UNLOCK(self->objects_mutex);
 
   return(iobject);
 }
@@ -292,7 +292,7 @@ local int construct_objects(void *self, class_t *class)
 //you initialize a class by calling init_class
 //ctor is a pointer to the constructor for objects of the class
 //iter is a pointer to the iterator and is called when iterating over all objects of the class
-//init_class registers the class constructor construct_objects
+//init_class registers the class 'constructor' register_object
 
 class_t *init_class(int nobjects_max, ctor_t ctor, iter_t iter)
 {
@@ -308,9 +308,9 @@ class_t *init_class(int nobjects_max, ctor_t ctor, iter_t iter)
 
   MALLOC(class->objects, void *, nobjects_max)
 
-  //register the class constructor
+  //register the class 'constructor'
 
-  class->construct_objects = construct_objects;
+  class->register_object = register_object;
 
   //register the object constructor
 
@@ -329,20 +329,20 @@ class_t *init_class(int nobjects_max, ctor_t ctor, iter_t iter)
 
 //the object iterator can return an error value
 
-void iterate_class(class_t *class)
+void iterate_class(class_t *self)
 {
-  PTHREAD_MUTEX_LOCK(class->objects_mutex);
+  PTHREAD_MUTEX_LOCK(self->objects_mutex);
 
-  BUG(class->objects_iter == NULL)
+  BUG(self->objects_iter == NULL)
 
   int nerrors = 0;
 
-  for (int iobject = 0; iobject < class->nobjects; iobject++)
-    nerrors += class->objects_iter(class->objects[iobject]);
+  for (int iobject = 0; iobject < self->nobjects; iobject++)
+    nerrors += self->objects_iter(self->objects[iobject]);
  
   BUG(nerrors > 0)
   
-  PTHREAD_MUTEX_UNLOCK(class->objects_mutex);
+  PTHREAD_MUTEX_UNLOCK(self->objects_mutex);
 }
 
 //example
@@ -390,9 +390,9 @@ local void *construct_my_object(void)
   
   MALLOC(self, my_object_t, 1)
 
-  //call the class constructor
+  //call the class 'constructor'
 
-  self->object_id = my_objects->construct_objects(self, my_objects);
+  self->object_id = my_objects->register_object(my_objects, self);
 
   //construct other parts of the object
 
