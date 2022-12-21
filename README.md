@@ -242,7 +242,7 @@ typedef void (*pter_t)(void *);
 
 typedef struct class
 {
-  int (*register_object)(void *, struct class *);  //class 'constructor'
+  int (*register_object)(struct class *, void *);  //class 'constructor'
 
   int nobjects_max;
   int nobjects;
@@ -296,35 +296,35 @@ local int register_object(class_t *self, void *object)
 
 class_t *init_class(int nobjects_max, ctor_t ctor, iter_t iter)
 {
-  class_t *class;
+  class_t *self;
  
-  MALLOC(class, class_t, 1)
+  MALLOC(self, class_t, 1)
 
   //the class keeps track of the (number of) created objects
 
-  class->nobjects_max = nobjects_max;
+  self->nobjects_max = nobjects_max;
 
-  class->nobjects = 0;
+  self->nobjects = 0;
 
-  MALLOC(class->objects, void *, nobjects_max)
+  MALLOC(self->objects, void *, nobjects_max)
 
   //register the class 'constructor'
 
-  class->register_object = register_object;
+  self->register_object = register_object;
 
   //register the object constructor
 
-  class->objects_ctor = ctor;
+  self->objects_ctor = ctor;
 
   //register the object iterator
 
-  class->objects_iter = iter;
+  self->objects_iter = iter;
 
   //make the class constructor thread safe
 
-  PTHREAD_MUTEX_INIT(class->objects_mutex);
+  PTHREAD_MUTEX_INIT(self->objects_mutex);
 
-  return(class);
+  return(self);
 }
 
 //the object iterator can return an error value
