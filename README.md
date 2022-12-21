@@ -173,6 +173,8 @@ moves_t *create_moves(void)
 }
 ..
 moves_t *moves = create_moves();
+..
+free(moves);
 */
 ```
 
