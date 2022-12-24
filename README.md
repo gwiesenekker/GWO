@@ -596,7 +596,7 @@ void test_states(void)
 }
 ```
 
-The output is of test_states() is:
+You call init_states() once from main(). The output of test_states() is:
 
 ```
 object_id=0
