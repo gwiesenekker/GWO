@@ -431,7 +431,7 @@ void test_objects(void)
 }
 ```
 
-## This is a complete example that combines GWO with another great library: cJSON
+## Here is a complete example that combines GWO with another great library: cJSON
 
 ```
 //.h
