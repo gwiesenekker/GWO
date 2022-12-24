@@ -242,17 +242,17 @@ typedef void (*pter_t)(void *);
 
 typedef struct class
 {
-  int (*register_object)(struct class *, void *);  //class 'constructor'
+  int (*register_object)(struct class *, void *); //the class 'constructor'
 
   int nobjects_max;
   int nobjects;
 
   void **objects;
 
-  ctor_t objects_ctor; //constructor
-  iter_t objects_iter; //iterator
+  ctor_t objects_ctor;
+  iter_t objects_iter;
 
-  PTHREAD_MUTEX_T objects_mutex; //mutex makes object creation and iteration thread-safe
+  PTHREAD_MUTEX_T objects_mutex; //makes object creation thread-safe
 } class_t;
 
 //a class
@@ -297,7 +297,7 @@ local int register_object(class_t *self, void *object)
 class_t *init_class(int nobjects_max, ctor_t ctor, iter_t iter)
 {
   class_t *self;
- 
+
   MALLOC(self, class_t, 1)
 
   //the class keeps track of the (number of) created objects
@@ -331,18 +331,14 @@ class_t *init_class(int nobjects_max, ctor_t ctor, iter_t iter)
 
 void iterate_class(class_t *self)
 {
-  PTHREAD_MUTEX_LOCK(self->objects_mutex);
-
   BUG(self->objects_iter == NULL)
 
   int nerrors = 0;
 
   for (int iobject = 0; iobject < self->nobjects; iobject++)
     nerrors += self->objects_iter(self->objects[iobject]);
- 
+
   BUG(nerrors > 0)
-  
-  PTHREAD_MUTEX_UNLOCK(self->objects_mutex);
 }
 
 //example
@@ -362,12 +358,9 @@ typedef struct
 
   char object_stamp[LINE_MAX];
 
-  iter_t iterate_object;
-
   //specific methods
 
   pter_t printf_object;
-
 } my_object_t;
 
 //the object printer
@@ -390,7 +383,7 @@ local void *construct_my_object(void)
   
   MALLOC(self, my_object_t, 1)
 
-  //call the class 'constructor'
+  //call the class constructor
 
   self->object_id = my_objects->register_object(my_objects, self);
 
@@ -434,4 +427,3 @@ void test_objects(void)
 
   iterate_class(my_objects);
 }
-```
