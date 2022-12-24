@@ -453,6 +453,9 @@ typedef struct state
   void (*add_move)(struct state *, char *);
   void (*set_depth)(struct state *, int);
   void (*set_time)(struct state *, int);
+  
+  int (*get_depth)(struct state *);
+  int (*get_time)(struct state *);
 } state_t;
 
 void init_states(void);
@@ -482,6 +485,9 @@ local void printf_state(void *self)
                               TRUE) == 0)
 
   PRINTF("state=%s\n", string);
+
+  PRINTF("depth=%d\n", state->get_depth(state));
+  PRINTF("time=%d\n", state->get_time(state));
 }
 
 //object methods
@@ -530,6 +536,26 @@ local void set_time(state_t *self, int time)
   cJSON_SetNumberValue(cjson_item, time);
 }
 
+local int get_depth(state_t *self)
+{
+  cJSON *cjson_item =
+    cJSON_GetObjectItem(self->cjson_object, CJSON_DEPTH_ID);
+
+  BUG(!cJSON_IsNumber(cjson_item))
+
+  return(round(cJSON_GetNumberValue(cjson_item)));
+}
+
+local int get_time(state_t *self)
+{
+  cJSON *cjson_item =
+    cJSON_GetObjectItem(self->cjson_object, CJSON_TIME_ID);
+
+  BUG(!cJSON_IsNumber(cjson_item))
+
+  return(round(cJSON_GetNumberValue(cjson_item)));
+}
+
 local void *construct_state(void)
 {
   state_t *self;
@@ -554,6 +580,9 @@ local void *construct_state(void)
   self->add_move = add_move;
   self->set_depth = set_depth;
   self->set_time = set_time;
+
+  self->get_depth = get_depth;
+  self->get_time = get_time;
 
   return(self);
 }
@@ -594,24 +623,28 @@ void test_states(void)
 
   iterate_class(state_objects);
 }
+
 ```
 
 You call init_states() once from main(). The output of test_states() is:
 
 ```
-object_id=0
 state={
-  "starting_position":  "[FEN \"W:W28,31,32,35,36,37,38,39,40,42,43,45,47:B3,7,8,11,12,13,15,19,20,21,23,26,29.\"]",
-  "moves":  ["31-26", "17-22"],
-  "depth":  32,
-  "time":  10
+	"starting_position":	"[FEN \"W:W28,31,32,35,36,37,38,39,40,42,43,45,47:B3,7,8,11,12,13,15,19,20,21,23,26,29.\"]",
+	"moves":	["31-26", "17-22"],
+	"depth":	32,
+	"time":	10
 }
+depth=32
+time=10
 iterate object_id=1
 object_id=1
 state={
-  "starting_position":  "[FEN \"W:W31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50:B01,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16,17,18,19,20.\"]",
-  "moves":  [],
-  "depth":  64,
-  "time":  30
+	"starting_position":	"[FEN \"W:W31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50:B01,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16,17,18,19,20.\"]",
+	"moves":	[],
+	"depth":	64,
+	"time":	30
 }
+depth=64
+time=30
 ```
