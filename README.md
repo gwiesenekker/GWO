@@ -342,7 +342,7 @@ void iterate_class(class_t *self)
 }
 ```
 
-Here is a basic example:
+## Here is a basic example
 
 ```
 //objects are derived from the generic class object
@@ -429,3 +429,164 @@ void test_objects(void)
 
   iterate_class(my_objects);
 }
+```
+
+## This is a complete example that combines GWO with another great library: cJSON
+
+```
+//the game state is maintained in a cJSON object
+//with the following fields
+//CJSON_FEN_ID
+//CJSON_MOVES_ID
+//CJSON_TIME_ID
+//CJSON_DEPTH_ID
+
+local class_t *state_objects;
+
+//the object printer
+
+local void printf_state(void *self)
+{
+  state_t *state = (state_t *) self;
+
+  PRINTF("object_id=%d\n", state->object_id);
+
+  char string[LINE_MAX];
+
+  BUG(cJSON_PrintPreallocated(state->cjson_object, string, LINE_MAX,
+                              TRUE) == 0)
+
+  PRINTF("state=%s\n", string);
+}
+
+//object methods
+
+local void set_position(state_t *self, char *position)
+{
+  cJSON *cjson_item =
+    cJSON_GetObjectItem(self->cjson_object, CJSON_STARTING_POSITION_ID);
+
+  BUG(!cJSON_IsString(cjson_item))
+
+  cJSON_SetStringValue(cjson_item, position);
+}
+
+local void add_move(state_t *self, char *move)
+{
+  cJSON *cjson_item =
+    cJSON_GetObjectItem(self->cjson_object, CJSON_MOVES_ID);
+
+  BUG(!cJSON_IsArray(cjson_item))
+
+  cJSON *cjson_move = cJSON_CreateString(move);
+
+  BUG(cjson_move == NULL)
+
+  cJSON_AddItemToArray(cjson_item, cjson_move);
+}
+
+local void set_depth(state_t *self, int depth)
+{
+  cJSON *cjson_item =
+    cJSON_GetObjectItem(self->cjson_object, CJSON_DEPTH_ID);
+
+  BUG(!cJSON_IsNumber(cjson_item))
+
+  cJSON_SetNumberValue(cjson_item, depth);
+}
+
+local void set_time(state_t *self, int time)
+{
+  cJSON *cjson_item =
+    cJSON_GetObjectItem(self->cjson_object, CJSON_TIME_ID);
+
+  BUG(!cJSON_IsNumber(cjson_item))
+
+  cJSON_SetNumberValue(cjson_item, time);
+}
+
+local void *construct_state(void)
+{
+  state_t *self;
+  
+  MALLOC(self, state_t, 1)
+
+  self->object_id = state_objects->register_object(state_objects, self);
+
+  self->cjson_object = cJSON_CreateObject();
+
+  BUG(cJSON_AddStringToObject(self->cjson_object, CJSON_STARTING_POSITION_ID,
+                              STARTING_POSITION2FEN) == NULL)
+
+  BUG(cJSON_AddArrayToObject(self->cjson_object, CJSON_MOVES_ID) == NULL)
+
+  BUG(cJSON_AddNumberToObject(self->cjson_object, CJSON_DEPTH_ID, 64) == NULL)
+
+  BUG(cJSON_AddNumberToObject(self->cjson_object, CJSON_TIME_ID, 30) == NULL)
+
+  self->printf_state = printf_state;
+  self->set_position = set_position;
+  self->add_move = add_move;
+  self->set_depth = set_depth;
+  self->set_time = set_time;
+
+  return(self);
+}
+
+//the object iterator
+
+local int iterate_state(void *self)
+{
+  state_t *state = (state_t *) self;
+
+  PRINTF("iterate object_id=%d\n", state->object_id);
+
+  state->printf_state(self);
+
+  return(0);
+}
+
+void init_states(void)
+{
+  state_objects = init_class(1024, construct_state, iterate_state);
+}
+
+void test_states(void)
+{
+  state_t *a = state_objects->objects_ctor();
+
+  a->set_position(a, "[FEN \"W:W28,31,32,35,36,37,38,39,40,42,43,45,47:B3,7,8,11,12,13,15,19,20,21,23,26,29.\"]");
+
+  a->add_move(a, "31-26");
+
+  a->add_move(a, "17-22");
+
+  a->set_depth(a, 32);
+
+  a->set_time(a, 10);
+
+  state_t *b = state_objects->objects_ctor();
+
+  iterate_class(state_objects);
+}
+```
+
+The output is:
+
+```
+object_id=0
+state={
+  "starting_position":  "[FEN \"W:W28,31,32,35,36,37,38,39,40,42,43,45,47:B3,7,8,11,12,13,15,19,20,21,23,26,29.\"]",
+  "moves":  ["31-26", "17-22"],
+  "depth":  32,
+  "time":  10
+}
+iterate object_id=1
+object_id=1
+state={
+  "starting_position":  "[FEN \"W:W31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50:B01,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16,17,18,19,20.\"]",
+  "moves":  [],
+  "depth":  64,
+  "time":  30
+}
+```
