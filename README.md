@@ -434,6 +434,31 @@ void test_objects(void)
 ## This is a complete example that combines GWO with another great library: cJSON
 
 ```
+//.h
+typedef struct state
+{
+  //generic properties and methods
+
+  int object_id;
+
+  //specific properties
+
+  cJSON *cjson_object;
+
+  //specific methods
+
+  pter_t printf_state;
+
+  void (*set_position)(struct state *, char *);
+  void (*add_move)(struct state *, char *);
+  void (*set_depth)(struct state *, int);
+  void (*set_time)(struct state *, int);
+} state_t;
+
+void init_states(void);
+void test_states(void);
+
+//.c
 //the game state is maintained in a cJSON object
 //with the following fields
 //CJSON_FEN_ID
