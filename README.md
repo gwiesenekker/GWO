@@ -340,9 +340,11 @@ void iterate_class(class_t *self)
 
   BUG(nerrors > 0)
 }
+```
 
-//example
+Here is a basic example:
 
+```
 //objects are derived from the generic class object
 
 local class_t *my_objects;
