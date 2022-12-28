@@ -475,7 +475,7 @@ local int iterate_my_object(void *self)
   return(0);
 }
 
-void test_objects(void)
+void test_my_objects(void)
 {
   //initialize the class 
 
@@ -608,7 +608,7 @@ local int iterate_TEMPLATE(void *self)
   return(0);
 }
 
-void test_objects(void)
+void test_TEMPLATEs(void)
 {
   //initialize the class 
 
