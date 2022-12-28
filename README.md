@@ -219,16 +219,18 @@ All in all much cleaner code to my opinion.
 Let us generalize this approach now for the main 'objects' in my draughts program. These objects have a long life-time but I also have to loop over these objects, print the contents of the objects for debugging purposes etc. Again with a little discipline you can come a long way by introducing 'classes' that maintain lists of these 'objects'. The following is a worked-out example. All main objects in my draughts program derive from the generic class 'object':
 
 ```
-//header
+//.h
 //generic class object
 
 //a generic constructor. The generic constructor is registered wih the class object
-//so that you can initialize an object using the syntax class_object->ctor(),
-//but this is more a matter of taste, you could also call the constructor directly as in the example above.
-//if the object constructor has arguments you cannot register the constructor with the class object
-//you have to define and call the constructor yourself.
+//so you can initialize an object using class_object->objects_ctor().
 
 typedef void *(*ctor_t)(void);
+
+//a generic destructor. The generic destructor is registered wih the class object
+//so you can initialize an object using the syntax class_object->objects_dtor().
+
+typedef void (*dtor_t)(void *);
 
 //a generic iterator. The generic iterator is registered wih the class object
 //so that the class object can iterate over the objects.
@@ -236,39 +238,50 @@ typedef void *(*ctor_t)(void);
 typedef int (*iter_t)(void *);
 
 //the generic printer is not registered with the class but with the object
-//as not all classes/objects need a printer
+//if needed as not all classes/objects need a printer
 
 typedef void (*pter_t)(void *);
 
 typedef struct class
 {
-  int (*register_object)(struct class *, void *); //the class 'constructor'
+  //objects are created by calling
+  //class_objects->objects_ctor().
+  //objects_ctor() should call register_object() to register an object
+  //with the class
+  //objects are destroyed by calling
+  //class_objects->objects_dtor()
+  //objects_dtor() should call deregister_object() to deregister an object
+  //from the class
+ 
+  int (*register_object)(struct class *, void *);
+  void (*deregister_object)(struct class *, void *);
 
   int nobjects_max;
   int nobjects;
+  int object_id;
 
   void **objects;
 
   ctor_t objects_ctor;
+  dtor_t objects_dtor;
   iter_t objects_iter;
 
-  PTHREAD_MUTEX_T objects_mutex; //makes object creation thread-safe
+  PTHREAD_MUTEX_T objects_mutex;
 } class_t;
 
-//a class
+//.c
 //objects are derived from a class
 
 //the class 'constructor' register_object registers a created object
-//in the class so that the class_iterator can loop over all objects and
+//with the class so that the class_iterator can loop over all objects and
 //it returns the object_id.
-//as the class keeps track of all created objects the class could also delete
-//them all when they are no longer needed,
-//but this is not needed for the main objects of my program
 //object_id can be used to create logical names for derived properties such as
 //log-0.txt for the log-file of the first thread object
 //log-1.txt for the log-file of the second thread object
 //etc.
-//you call the class 'constructor' from the object constructor
+//object_id's are not re-used and the class will keep track of
+//at most nobject_max objects
+//you should call the class constructor from the object constructor
 
 local int register_object(class_t *self, void *object)
 {
@@ -276,28 +289,52 @@ local int register_object(class_t *self, void *object)
 
   BUG(self->nobjects >= self->nobjects_max)
 
-  int iobject = self->nobjects;
+  self->objects[self->nobjects++] = object;
 
-  //keep track of objects in class
-
-  self->objects[iobject] = object;
-
-  self->nobjects++;
+  int object_id = self->object_id++;
 
   PTHREAD_MUTEX_UNLOCK(self->objects_mutex);
 
-  return(iobject);
+  return(object_id);
+}
+
+//the class 'destructor' deregister_object deregisters an object
+//in the class
+
+local void deregister_object(class_t *self, void *object)
+{
+  PTHREAD_MUTEX_LOCK(self->objects_mutex);
+
+  BUG(self->nobjects < 1)
+
+  int iobject;
+
+  for (iobject = 0; iobject < self->nobjects; iobject++)
+    if (self->objects[iobject] == object) break;
+
+  BUG(iobject >= self->nobjects) 
+
+  for (int jobject = iobject; jobject < self->nobjects - 1; jobject++)
+    self->objects[jobject] = self->objects[jobject + 1];
+
+  self->objects[self->nobjects - 1] = NULL;
+
+  self->nobjects--;
+
+  PTHREAD_MUTEX_UNLOCK(self->objects_mutex);
 }
 
 //you initialize a class by calling init_class
 //ctor is a pointer to the constructor for objects of the class
-//iter is a pointer to the iterator and is called when iterating over all objects of the class
-//init_class registers the class 'constructor' register_object
+//dtor is a pointer to the destructor for objects of the class
+//iter is a is called when iterating over all objects of the class
+//init_class registers the class constructor register_object
+//and the class destructor deregister_object
 
-class_t *init_class(int nobjects_max, ctor_t ctor, iter_t iter)
+class_t *init_class(int nobjects_max, ctor_t ctor, dtor_t dtor, iter_t iter)
 {
   class_t *self;
-
+ 
   MALLOC(self, class_t, 1)
 
   //the class keeps track of the (number of) created objects
@@ -306,15 +343,26 @@ class_t *init_class(int nobjects_max, ctor_t ctor, iter_t iter)
 
   self->nobjects = 0;
 
+  self->object_id = 0;
+
   MALLOC(self->objects, void *, nobjects_max)
 
-  //register the class 'constructor'
+  for (int iobject = 0; iobject < nobjects_max; iobject++)
+   self->objects[iobject] = NULL;
+
+  //register the class 'constructor' and 'destructor'
 
   self->register_object = register_object;
+
+  self->deregister_object = deregister_object;
 
   //register the object constructor
 
   self->objects_ctor = ctor;
+
+  //register the object destructor
+
+  self->objects_dtor = dtor;
 
   //register the object iterator
 
@@ -336,14 +384,16 @@ void iterate_class(class_t *self)
   int nerrors = 0;
 
   for (int iobject = 0; iobject < self->nobjects; iobject++)
-    nerrors += self->objects_iter(self->objects[iobject]);
+  {
+    BUG(self->objects[iobject] == NULL)
 
+    nerrors += self->objects_iter(self->objects[iobject]);
+  }
+ 
   BUG(nerrors > 0)
 }
 ```
-
 ## Here is a basic example
-
 ```
 //objects are derived from the generic class object
 
@@ -371,10 +421,9 @@ local void printf_my_object(void *self)
 {
   my_object_t *my_object = (my_object_t *) self;
 
-  PRINTF("printing my_object\n");
+  PRINTF("printing my_object object_id=%d\n", my_object->object_id);
 
   PRINTF("object_stamp=%s\n", my_object->object_stamp);
-  PRINTF("object_id=%d\n", my_object->object_id);
 }
 
 //the object constructor
@@ -385,7 +434,7 @@ local void *construct_my_object(void)
   
   MALLOC(self, my_object_t, 1)
 
-  //call the class constructor
+  //call the class 'constructor'
 
   self->object_id = my_objects->register_object(my_objects, self);
 
@@ -400,6 +449,19 @@ local void *construct_my_object(void)
   self->printf_object = printf_my_object;
 
   return(self);
+}
+
+//the object destructor
+
+local void destroy_my_object(void *self)
+{
+  my_object_t *my_object = (my_object_t *) self;
+
+  PRINTF("destroying my_object object_id=%d\n", my_object->object_id);
+
+  //call the class 'destructor'
+
+  my_objects->deregister_object(my_objects, self);
 }
 
 //the object iterator
@@ -417,7 +479,8 @@ void test_objects(void)
 {
   //initialize the class 
 
-  my_objects = init_class(1024, construct_my_object, iterate_my_object);
+  my_objects = init_class(3, construct_my_object, destroy_my_object,
+                          iterate_my_object);
 
   my_object_t *a = my_objects->objects_ctor();
 
@@ -427,14 +490,47 @@ void test_objects(void)
 
   b->printf_object(b);
 
+  my_object_t *c = my_objects->objects_ctor();
+
+  c->printf_object(c);
+
+  PRINTF("iterate from a to c\n");
+
+  iterate_class(my_objects);
+
+  my_objects->objects_dtor(a);
+
+  PRINTF("a has been destroyed, b and c should be left\n");
+
+  iterate_class(my_objects);
+
+  my_object_t *d = my_objects->objects_ctor();
+  
+  PRINTF("d has been added, iterate from b to d\n");
+
+  iterate_class(my_objects);
+
+  my_objects->objects_dtor(c);
+
+  PRINTF("c has been destroyed, b and d should be left\n");
+
+  iterate_class(my_objects);
+
+  my_object_t *e = my_objects->objects_ctor();
+  
+  PRINTF("e has been added\n");
+
   iterate_class(my_objects);
 }
+
 ```
 
 ## Here is a complete example that combines GWO with another great C library: cJSON
 
 ```
 //.h
+//states.c
+
 typedef struct state
 {
   //generic properties and methods
@@ -445,31 +541,44 @@ typedef struct state
 
   cJSON *cjson_object;
 
+  char string[LINE_MAX];
+
   //specific methods
 
   pter_t printf_state;
 
-  void (*set_position)(struct state *, char *);
-  void (*add_move)(struct state *, char *);
+  void (*set_state)(struct state *, char *);
+  void (*set_event)(struct state *, char *);
+  void (*set_date)(struct state *, char *);
+  void (*set_white)(struct state *, char *);
+  void (*set_black)(struct state *, char *);
+  void (*set_result)(struct state *, char *);
+  void (*set_starting_position)(struct state *, char *);
+  void (*push_move)(struct state *, char *, char *);
+  void (*pop_move)(struct state *);
   void (*set_depth)(struct state *, int);
   void (*set_time)(struct state *, int);
-  
+  void (*save)(struct state *, char *);
+  void (*save2pdn)(struct state *, char *);
+
+  char *(*get_state)(struct state *);
+  char *(*get_event)(struct state *);
+  char *(*get_date)(struct state *);
+  char *(*get_white)(struct state *);
+  char *(*get_black)(struct state *);
+  char *(*get_result)(struct state *);
+  char *(*get_starting_position)(struct state *);
+  cJSON *(*get_moves)(struct state *);
   int (*get_depth)(struct state *);
   int (*get_time)(struct state *);
+  void (*load)(struct state *, char *);
 } state_t;
-
-void init_states(void);
-void test_states(void);
 
 //.c
 //the game state is maintained in a cJSON object
 //with the following fields
-//CJSON_FEN_ID
-//CJSON_MOVES_ID
-//CJSON_TIME_ID
-//CJSON_DEPTH_ID
 
-local class_t *state_objects;
+class_t *state_objects;
 
 //the object printer
 
@@ -479,20 +588,85 @@ local void printf_state(void *self)
 
   PRINTF("object_id=%d\n", state->object_id);
 
-  char string[LINE_MAX];
-
-  BUG(cJSON_PrintPreallocated(state->cjson_object, string, LINE_MAX,
-                              TRUE) == 0)
-
-  PRINTF("state=%s\n", string);
-
+  PRINTF("state=%s\n", state->get_state(state));
+  PRINTF("event=%s\n", state->get_event(state));
+  PRINTF("date=%s\n", state->get_date(state));
+  PRINTF("white=%s\n", state->get_white(state));
+  PRINTF("black=%s\n", state->get_black(state));
+  PRINTF("result=%s\n", state->get_result(state));
+  PRINTF("starting_position=%s\n", state->get_starting_position(state));
   PRINTF("depth=%d\n", state->get_depth(state));
   PRINTF("time=%d\n", state->get_time(state));
 }
 
 //object methods
 
-local void set_position(state_t *self, char *position)
+local void set_state(state_t *self, char *string)
+{
+  self->cjson_object = cJSON_Parse(string);
+
+  if (self->cjson_object == NULL)
+  { 
+    const char *error = cJSON_GetErrorPtr();
+
+    if (error != NULL)
+      fprintf(stderr, "json error before: %s\n", error);
+
+    FATAL("gwd.json error", EXIT_FAILURE)
+  }
+}
+
+local void set_event(state_t *self, char *event)
+{
+  cJSON *cjson_item =
+    cJSON_GetObjectItem(self->cjson_object, CJSON_EVENT_ID);
+
+  BUG(!cJSON_IsString(cjson_item))
+
+  cJSON_SetStringValue(cjson_item, event);
+}
+
+local void set_date(state_t *self, char *date)
+{
+  cJSON *cjson_item =
+    cJSON_GetObjectItem(self->cjson_object, CJSON_DATE_ID);
+
+  BUG(!cJSON_IsString(cjson_item))
+
+  cJSON_SetStringValue(cjson_item, date);
+}
+
+local void set_white(state_t *self, char *white)
+{
+  cJSON *cjson_item =
+    cJSON_GetObjectItem(self->cjson_object, CJSON_WHITE_ID);
+
+  BUG(!cJSON_IsString(cjson_item))
+
+  cJSON_SetStringValue(cjson_item, white);
+}
+
+local void set_black(state_t *self, char *black)
+{
+  cJSON *cjson_item =
+    cJSON_GetObjectItem(self->cjson_object, CJSON_BLACK_ID);
+
+  BUG(!cJSON_IsString(cjson_item))
+
+  cJSON_SetStringValue(cjson_item, black);
+}
+
+local void set_result(state_t *self, char *result)
+{
+  cJSON *cjson_item =
+    cJSON_GetObjectItem(self->cjson_object, CJSON_RESULT_ID);
+
+  BUG(!cJSON_IsString(cjson_item))
+
+  cJSON_SetStringValue(cjson_item, result);
+}
+
+local void set_starting_position(state_t *self, char *position)
 {
   cJSON *cjson_item =
     cJSON_GetObjectItem(self->cjson_object, CJSON_STARTING_POSITION_ID);
@@ -502,18 +676,36 @@ local void set_position(state_t *self, char *position)
   cJSON_SetStringValue(cjson_item, position);
 }
 
-local void add_move(state_t *self, char *move)
+local void push_move(state_t *self, char *move, char *comment)
 {
   cJSON *cjson_item =
     cJSON_GetObjectItem(self->cjson_object, CJSON_MOVES_ID);
 
   BUG(!cJSON_IsArray(cjson_item))
 
-  cJSON *cjson_move = cJSON_CreateString(move);
-
+  cJSON *cjson_move = cJSON_CreateObject();
+ 
   BUG(cjson_move == NULL)
 
+  BUG(cJSON_AddStringToObject(cjson_move, CJSON_MOVE_STRING_ID, move) == NULL)
+
+  if (comment != NULL)
+    BUG(cJSON_AddStringToObject(cjson_move, CJSON_COMMENT_STRING_ID,
+                                comment) == NULL)
+
   cJSON_AddItemToArray(cjson_item, cjson_move);
+}
+
+local void pop_move(state_t *self)
+{
+  cJSON *cjson_item =
+    cJSON_GetObjectItem(self->cjson_object, CJSON_MOVES_ID);
+
+  BUG(!cJSON_IsArray(cjson_item))
+
+  int n = cJSON_GetArraySize(cjson_item);
+
+  if (n > 0) cJSON_DeleteItemFromArray(cjson_item, n - 1);
 }
 
 local void set_depth(state_t *self, int depth)
@@ -536,6 +728,142 @@ local void set_time(state_t *self, int time)
   cJSON_SetNumberValue(cjson_item, time);
 }
 
+local void save(state_t *self, char *name)
+{
+  FILE *fsave;
+
+  BUG((fsave = fopen(name, "w")) == NULL)
+
+  fprintf(fsave, "%s\n", self->get_state(self));
+
+  FCLOSE(fsave);
+}
+
+local void save2pdn(state_t *self, char *pdn)
+{
+  FILE *fpdn;
+
+  BUG((fpdn = fopen(pdn, "a")) == NULL)
+
+  fprintf(fpdn, "[Event \"%s\"]\n", self->get_event(self));
+  fprintf(fpdn, "[Date \"%s\"]\n", self->get_date(self));
+  fprintf(fpdn, "[White \"%s\"]\n", self->get_white(self));
+  fprintf(fpdn, "[Black \"%s\"]\n", self->get_black(self));
+  fprintf(fpdn, "[Result \"%s\"]\n", self->get_result(self));
+  fprintf(fpdn, "[FEN \"%s\"]\n\n", self->get_starting_position(self));
+
+  int iply = 0;
+
+  cJSON *game_move;
+
+  cJSON_ArrayForEach(game_move, self->get_moves(self))
+  {
+    cJSON *move_string = cJSON_GetObjectItem(game_move, CJSON_MOVE_STRING_ID);
+
+    BUG(!cJSON_IsString(move_string))
+
+    cJSON *comment_string = cJSON_GetObjectItem(game_move,
+                                                CJSON_COMMENT_STRING_ID);
+
+    if ((iply % 2) == 0) fprintf(fpdn, " %d.", iply / 2 + 1);
+
+    if (comment_string == NULL)
+    {
+      fprintf(fpdn, " %s", cJSON_GetStringValue(move_string));
+    }
+    else
+    {
+      fprintf(fpdn, " %s {%s}", cJSON_GetStringValue(move_string),
+                                cJSON_GetStringValue(comment_string));
+    } 
+
+    iply++;
+
+    if ((iply > 0) and ((iply % 10) == 0)) fprintf(fpdn, "\n");
+  }
+  fprintf(fpdn, " %s\n\n", self->get_result(self));
+
+  FCLOSE(fpdn)
+}
+
+local char *get_state(state_t *self)
+{
+  BUG(cJSON_PrintPreallocated(self->cjson_object, self->string, LINE_MAX,
+                              FALSE) == 0)
+
+  return(self->string);
+}
+
+local char *get_event(state_t *self)
+{
+  cJSON *cjson_item =
+    cJSON_GetObjectItem(self->cjson_object, CJSON_EVENT_ID);
+
+  BUG(!cJSON_IsString(cjson_item))
+
+  return(cJSON_GetStringValue(cjson_item));
+}
+
+local char *get_date(state_t *self)
+{
+  cJSON *cjson_item =
+    cJSON_GetObjectItem(self->cjson_object, CJSON_DATE_ID);
+
+  BUG(!cJSON_IsString(cjson_item))
+
+  return(cJSON_GetStringValue(cjson_item));
+}
+
+local char *get_white(state_t *self)
+{
+  cJSON *cjson_item =
+    cJSON_GetObjectItem(self->cjson_object, CJSON_WHITE_ID);
+
+  BUG(!cJSON_IsString(cjson_item))
+
+  return(cJSON_GetStringValue(cjson_item));
+}
+
+local char *get_black(state_t *self)
+{
+  cJSON *cjson_item =
+    cJSON_GetObjectItem(self->cjson_object, CJSON_BLACK_ID);
+
+  BUG(!cJSON_IsString(cjson_item))
+
+  return(cJSON_GetStringValue(cjson_item));
+}
+
+local char *get_result(state_t *self)
+{
+  cJSON *cjson_item =
+    cJSON_GetObjectItem(self->cjson_object, CJSON_RESULT_ID);
+
+  BUG(!cJSON_IsString(cjson_item))
+
+  return(cJSON_GetStringValue(cjson_item));
+}
+
+local char *get_starting_position(state_t *self)
+{
+  cJSON *cjson_item =
+    cJSON_GetObjectItem(self->cjson_object, CJSON_STARTING_POSITION_ID);
+
+  BUG(!cJSON_IsString(cjson_item))
+
+  return(cJSON_GetStringValue(cjson_item));
+}
+
+local cJSON *get_moves(state_t *self)
+{
+  cJSON *cjson_item =
+    cJSON_GetObjectItem(self->cjson_object, CJSON_MOVES_ID);
+
+  BUG(!cJSON_IsArray(cjson_item))
+
+  return(cjson_item);
+}
+
 local int get_depth(state_t *self)
 {
   cJSON *cjson_item =
@@ -556,6 +884,36 @@ local int get_time(state_t *self)
   return(round(cJSON_GetNumberValue(cjson_item)));
 }
 
+local void load(state_t *self, char *name)
+{
+  FILE *fload;
+
+  BUG((fload = fopen(name, "r")) == NULL)
+
+  char string[LINE_MAX];
+
+  strcpy(string, "");
+  
+  while(TRUE)
+  {
+    char line[LINE_MAX];
+ 
+    if (fgets(line, LINE_MAX, fload) == NULL) break;
+
+    size_t n = strlen(line);
+
+    if (n > 0)
+    {
+      if (line[n - 1] == '\n') line[n - 1] = '\0';
+    }
+    strcat(string, " ");
+    strcat(string, line);
+  }
+  FCLOSE(fload)
+
+  self->set_state(self, string);
+}
+
 local void *construct_state(void)
 {
   state_t *self;
@@ -565,6 +923,30 @@ local void *construct_state(void)
   self->object_id = state_objects->register_object(state_objects, self);
 
   self->cjson_object = cJSON_CreateObject();
+
+  char event[LINE_MAX];
+
+  time_t t = time(NULL);
+
+  (void) strftime(event, LINE_MAX, "%Y.%m.%d %H:%M:%S", localtime(&t));
+
+  BUG(cJSON_AddStringToObject(self->cjson_object, CJSON_EVENT_ID, event) ==
+      NULL)
+
+  char date[LINE_MAX];
+
+  (void) strftime(date, LINE_MAX, "%Y.%m.%d", localtime(&t));
+
+  BUG(cJSON_AddStringToObject(self->cjson_object, CJSON_DATE_ID, date) == NULL)
+
+  BUG(cJSON_AddStringToObject(self->cjson_object, CJSON_WHITE_ID, "White") ==
+      NULL)
+
+  BUG(cJSON_AddStringToObject(self->cjson_object, CJSON_BLACK_ID, "Black") ==
+      NULL)
+
+  BUG(cJSON_AddStringToObject(self->cjson_object, CJSON_RESULT_ID, "*") ==
+      NULL)
 
   BUG(cJSON_AddStringToObject(self->cjson_object, CJSON_STARTING_POSITION_ID,
                               STARTING_POSITION2FEN) == NULL)
@@ -576,16 +958,45 @@ local void *construct_state(void)
   BUG(cJSON_AddNumberToObject(self->cjson_object, CJSON_TIME_ID, 30) == NULL)
 
   self->printf_state = printf_state;
-  self->set_position = set_position;
-  self->add_move = add_move;
+
+  self->set_state = set_state;
+  self->set_event = set_event;
+  self->set_date = set_date;
+  self->set_white = set_white;
+  self->set_black = set_black;
+  self->set_result = set_result;
+  self->set_starting_position = set_starting_position;
+  self->push_move = push_move;
+  self->pop_move = pop_move;
   self->set_depth = set_depth;
   self->set_time = set_time;
+  self->save = save;
+  self->save2pdn = save2pdn;
 
+  self->get_state = get_state;
+  self->get_event = get_event;
+  self->get_date = get_date;
+  self->get_white = get_white;
+  self->get_black = get_black;
+  self->get_result = get_result;
+  self->get_starting_position = get_starting_position;
+  self->get_moves = get_moves;
   self->get_depth = get_depth;
   self->get_time = get_time;
+  self->load = load;
 
   return(self);
 }
+
+local void destroy_state(void *self)
+{
+  state_t *my_state = (state_t *) self;
+
+  cJSON_Delete(my_state->cjson_object);
+
+  state_objects->deregister_object(state_objects, self);
+}
+
 
 //the object iterator
 
@@ -602,49 +1013,69 @@ local int iterate_state(void *self)
 
 void init_states(void)
 {
-  state_objects = init_class(1024, construct_state, iterate_state);
+  state_objects = init_class(32, construct_state, destroy_state,
+                             iterate_state);
 }
 
 void test_states(void)
 {
   state_t *a = state_objects->objects_ctor();
 
-  a->set_position(a, "[FEN \"W:W28,31,32,35,36,37,38,39,40,42,43,45,47:B3,7,8,11,12,13,15,19,20,21,23,26,29.\"]");
+  a->set_starting_position(a, "[FEN \"W:W28,31,32,35,36,37,38,39,40,42,43,45,47:B3,7,8,11,12,13,15,19,20,21,23,26,29.\"]");
 
-  a->add_move(a, "31-26");
+  a->push_move(a, "31-26", NULL);
 
-  a->add_move(a, "17-22");
+  a->push_move(a, "17-22", "{only move}");
 
   a->set_depth(a, 32);
 
   a->set_time(a, 10);
+
+  a->printf_state(a);
+
+  a->pop_move(a);
 
   state_t *b = state_objects->objects_ctor();
 
   iterate_class(state_objects);
 }
 
+
 ```
 
 You call init_states() once from main(). The output of test_states() is:
 
 ```
-state={
-	"starting_position":	"[FEN \"W:W28,31,32,35,36,37,38,39,40,42,43,45,47:B3,7,8,11,12,13,15,19,20,21,23,26,29.\"]",
-	"moves":	["31-26", "17-22"],
-	"depth":	32,
-	"time":	10
-}
+state={"event":"2022.12.28 10:26:02","date":"2022.12.28","white":"White","black":"Black","result":"*","FEN":"[FEN \"W:W28,31,32,35,36,37,38,39,40,42,43,45,47:B3,7,8,11,12,13,15,19,20,21,23,26,29.\"]","moves":[{"move_string":"31-26"},{"move_string":"17-22","comment_string":"{only move}"}],"depth":32,"time":10}
+event=2022.12.28 10:26:02
+date=2022.12.28
+white=White
+black=Black
+result=*
+starting_position=[FEN "W:W28,31,32,35,36,37,38,39,40,42,43,45,47:B3,7,8,11,12,13,15,19,20,21,23,26,29."]
+depth=32
+time=10
+iterate object_id=0
+object_id=0
+state={"event":"2022.12.28 10:26:02","date":"2022.12.28","white":"White","black":"Black","result":"*","FEN":"[FEN \"W:W28,31,32,35,36,37,38,39,40,42,43,45,47:B3,7,8,11,12,13,15,19,20,21,23,26,29.\"]","moves":[{"move_string":"31-26"}],"depth":32,"time":10}
+event=2022.12.28 10:26:02
+date=2022.12.28
+white=White
+black=Black
+result=*
+starting_position=[FEN "W:W28,31,32,35,36,37,38,39,40,42,43,45,47:B3,7,8,11,12,13,15,19,20,21,23,26,29."]
 depth=32
 time=10
 iterate object_id=1
 object_id=1
-state={
-	"starting_position":	"[FEN \"W:W31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50:B01,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16,17,18,19,20.\"]",
-	"moves":	[],
-	"depth":	64,
-	"time":	30
-}
+state={"event":"2022.12.28 10:26:02","date":"2022.12.28","white":"White","black":"Black","result":"*","FEN":"[FEN \"W:W31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50:B01,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16,17,18,19,20.\"]","moves":[],"depth":64,"time":30}
+event=2022.12.28 10:26:02
+date=2022.12.28
+white=White
+black=Black
+result=*
+starting_position=[FEN "W:W31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50:B01,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16,17,18,19,20."]
 depth=64
 time=30
+
 ```
