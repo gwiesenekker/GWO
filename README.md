@@ -419,7 +419,7 @@ typedef struct
 
 local void printf_my_object(void *self)
 {
-  my_object_t *my_object = (my_object_t *) self;
+  my_object_t *my_object = self;
 
   PRINTF("printing my_object object_id=%d\n", my_object->object_id);
 
@@ -455,7 +455,7 @@ local void *construct_my_object(void)
 
 local void destroy_my_object(void *self)
 {
-  my_object_t *my_object = (my_object_t *) self;
+  my_object_t *my_object = self;
 
   PRINTF("destroying my_object object_id=%d\n", my_object->object_id);
 
@@ -468,7 +468,7 @@ local void destroy_my_object(void *self)
 
 local int iterate_my_object(void *self)
 {
-  my_object_t *my_object = (my_object_t *) self;
+  my_object_t *my_object = self;
 
   PRINTF("iterate object_id=%d\n", my_object->object_id);
 
@@ -552,7 +552,7 @@ typedef struct
 
 local void printf_TEMPLATE(void *self)
 {
-  TEMPLATE_t *TEMPLATE = (TEMPLATE_t *) self;
+  TEMPLATE_t *TEMPLATE = self;
 
   PRINTF("printing TEMPLATE object_id=%d\n", TEMPLATE->object_id);
 
@@ -588,7 +588,7 @@ local void *construct_TEMPLATE(void)
 
 local void destroy_TEMPLATE(void *self)
 {
-  TEMPLATE_t *TEMPLATE = (TEMPLATE_t *) self;
+  TEMPLATE_t *TEMPLATE = self;
 
   PRINTF("destroying TEMPLATE object_id=%d\n", TEMPLATE->object_id);
 
@@ -601,7 +601,7 @@ local void destroy_TEMPLATE(void *self)
 
 local int iterate_TEMPLATE(void *self)
 {
-  TEMPLATE_t *TEMPLATE = (TEMPLATE_t *) self;
+  TEMPLATE_t *TEMPLATE = self;
 
   PRINTF("iterate object_id=%d\n", TEMPLATE->object_id);
 
@@ -715,7 +715,7 @@ class_t *state_objects;
 
 local void printf_state(void *self)
 {
-  state_t *state = (state_t *) self;
+  state_t *state = self;
 
   PRINTF("object_id=%d\n", state->object_id);
 
@@ -1121,7 +1121,7 @@ local void *construct_state(void)
 
 local void destroy_state(void *self)
 {
-  state_t *my_state = (state_t *) self;
+  state_t *my_state = self;
 
   cJSON_Delete(my_state->cjson_object);
 
@@ -1133,7 +1133,7 @@ local void destroy_state(void *self)
 
 local int iterate_state(void *self)
 {
-  state_t *state = (state_t *) self;
+  state_t *state = self;
 
   PRINTF("iterate object_id=%d\n", state->object_id);
 
