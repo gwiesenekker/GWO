@@ -524,7 +524,7 @@ void test_objects(void)
 }
 
 ```
-## Here is a TEMPLATE you can copy.
+## Here is a TEMPLATE you can copy. Just change TEMPLATE to the name of object and start hacking!
 ```
 //example
 
