@@ -524,7 +524,7 @@ void test_my_objects(void)
 }
 
 ```
-## Here is a TEMPLATE you can copy. Just change TEMPLATE to the name of object and start coding!
+## Here is a TEMPLATE you can copy. Just change TEMPLATE to the name of the object and start coding!
 ```
 //example
 
