@@ -524,7 +524,138 @@ void test_objects(void)
 }
 
 ```
+## Here is a TEMPLATE you can copy.
+```
+//example
 
+//objects are derived from the generic class object
+
+local class_t *TEMPLATEs;
+
+//define an object with properties and methods
+//object_id is set by the class constructor
+
+typedef struct
+{
+  //generic properties and methods
+
+  int object_id;
+
+  char object_stamp[LINE_MAX];
+
+  //specific methods
+
+  pter_t printf_object;
+} TEMPLATE_t;
+
+//the object printer
+
+local void printf_TEMPLATE(void *self)
+{
+  TEMPLATE_t *TEMPLATE = (TEMPLATE_t *) self;
+
+  PRINTF("printing TEMPLATE object_id=%d\n", TEMPLATE->object_id);
+
+  PRINTF("object_stamp=%s\n", TEMPLATE->object_stamp);
+}
+
+//the object constructor
+
+local void *construct_TEMPLATE(void)
+{
+  TEMPLATE_t *self;
+  
+  MALLOC(self, TEMPLATE_t, 1)
+
+  //call the class 'constructor'
+
+  self->object_id = TEMPLATEs->register_object(TEMPLATEs, self);
+
+  //construct other parts of the object
+
+  time_t t = time(NULL);
+  (void) strftime(self->object_stamp, LINE_MAX,
+    "%H:%M:%S-%d/%m/%Y", localtime(&t));
+
+  //register object methods
+
+  self->printf_object = printf_TEMPLATE;
+
+  return(self);
+}
+
+//the object destructor
+
+local void destroy_TEMPLATE(void *self)
+{
+  TEMPLATE_t *TEMPLATE = (TEMPLATE_t *) self;
+
+  PRINTF("destroying TEMPLATE object_id=%d\n", TEMPLATE->object_id);
+
+  //call the class 'destructor'
+
+  TEMPLATEs->deregister_object(TEMPLATEs, self);
+}
+
+//the object iterator
+
+local int iterate_TEMPLATE(void *self)
+{
+  TEMPLATE_t *TEMPLATE = (TEMPLATE_t *) self;
+
+  PRINTF("iterate object_id=%d\n", TEMPLATE->object_id);
+
+  return(0);
+}
+
+void test_objects(void)
+{
+  //initialize the class 
+
+  TEMPLATEs = init_class(3, construct_TEMPLATE, destroy_TEMPLATE,
+                          iterate_TEMPLATE);
+
+  TEMPLATE_t *a = TEMPLATEs->objects_ctor();
+
+  a->printf_object(a);
+
+  TEMPLATE_t *b = TEMPLATEs->objects_ctor();
+
+  b->printf_object(b);
+
+  TEMPLATE_t *c = TEMPLATEs->objects_ctor();
+
+  c->printf_object(c);
+
+  PRINTF("iterate from a to c\n");
+
+  iterate_class(TEMPLATEs);
+
+  TEMPLATEs->objects_dtor(a);
+
+  PRINTF("a has been destroyed, b and c should be left\n");
+
+  iterate_class(TEMPLATEs);
+
+  TEMPLATE_t *d = TEMPLATEs->objects_ctor();
+  
+  PRINTF("d has been added, iterate from b to d\n");
+
+  iterate_class(TEMPLATEs);
+
+  TEMPLATEs->objects_dtor(c);
+
+  PRINTF("c has been destroyed, b and d should be left\n");
+
+  iterate_class(TEMPLATEs);
+
+  TEMPLATE_t *e = TEMPLATEs->objects_ctor();
+  
+  PRINTF("e has been added\n");
+
+  iterate_class(TEMPLATEs);
+}
+```
 ## Here is a complete example that combines GWO with another great C library: cJSON
 
 ```
