@@ -545,7 +545,7 @@ typedef struct
 
   //specific properties and methods
 
-  pter_t printf_object;
+  pter_t printf_TEMPLATE;
 } TEMPLATE_t;
 
 //the object printer
@@ -579,7 +579,7 @@ local void *construct_TEMPLATE(void)
 
   //register object methods
 
-  self->printf_object = printf_TEMPLATE;
+  self->printf_TEMPLATE = printf_TEMPLATE;
 
   return(self);
 }
