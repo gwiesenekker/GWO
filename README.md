@@ -410,7 +410,7 @@ typedef struct
 
   char object_stamp[LINE_MAX];
 
-  //specific methods
+  //specific properties and methods
 
   pter_t printf_object;
 } my_object_t;
@@ -543,7 +543,7 @@ typedef struct
 
   char object_stamp[LINE_MAX];
 
-  //specific methods
+  //specific properties and methods
 
   pter_t printf_object;
 } TEMPLATE_t;
