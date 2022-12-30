@@ -397,7 +397,7 @@ void iterate_class(class_t *self)
 ```
 //objects are derived from the generic class object
 
-local class_t *my_objects;
+local class_t *my_object_class;
 
 //define an object with properties and methods
 //object_id is set by the class constructor
@@ -436,7 +436,7 @@ local void *construct_my_object(void)
 
   //call the class 'constructor'
 
-  self->object_id = my_objects->register_object(my_objects, self);
+  self->object_id = my_object_class->register_object(my_object_class, self);
 
   //construct other parts of the object
 
@@ -461,7 +461,7 @@ local void destroy_my_object(void *self)
 
   //call the class 'destructor'
 
-  my_objects->deregister_object(my_objects, self);
+  my_object_class->deregister_object(my_object_class, self);
 }
 
 //the object iterator
@@ -475,52 +475,52 @@ local int iterate_my_object(void *self)
   return(0);
 }
 
-void test_my_objects(void)
+void test_my_object_class(void)
 {
   //initialize the class 
 
-  my_objects = init_class(3, construct_my_object, destroy_my_object,
-                          iterate_my_object);
+  test_my_object_class = init_class(3, construct_my_object, destroy_my_object,
+                                    iterate_my_object);
 
-  my_object_t *a = my_objects->objects_ctor();
+  my_object_t *a = my_object_class->objects_ctor();
 
   a->printf_object(a);
 
-  my_object_t *b = my_objects->objects_ctor();
+  my_object_t *b = my_object_class->objects_ctor();
 
   b->printf_object(b);
 
-  my_object_t *c = my_objects->objects_ctor();
+  my_object_t *c = my_object_class->objects_ctor();
 
   c->printf_object(c);
 
   PRINTF("iterate from a to c\n");
 
-  iterate_class(my_objects);
+  iterate_class(my_object_class);
 
-  my_objects->objects_dtor(a);
+  my_object_class->objects_dtor(a);
 
   PRINTF("a has been destroyed, b and c should be left\n");
 
-  iterate_class(my_objects);
+  iterate_class(my_object_class);
 
-  my_object_t *d = my_objects->objects_ctor();
+  my_object_t *d = my_object_class->objects_ctor();
   
   PRINTF("d has been added, iterate from b to d\n");
 
-  iterate_class(my_objects);
+  iterate_class(my_object_class);
 
-  my_objects->objects_dtor(c);
+  my_object_class->objects_dtor(c);
 
   PRINTF("c has been destroyed, b and d should be left\n");
 
-  iterate_class(my_objects);
+  iterate_class(my_object_class);
 
-  my_object_t *e = my_objects->objects_ctor();
+  my_object_t *e = my_object_class->objects_ctor();
   
   PRINTF("e has been added\n");
 
-  iterate_class(my_objects);
+  iterate_class(my_object_class);
 }
 
 ```
@@ -530,7 +530,7 @@ void test_my_objects(void)
 
 //objects are derived from the generic class object
 
-local class_t *TEMPLATEs;
+local class_t *TEMPLATE_class;
 
 //define an object with properties and methods
 //object_id is set by the class constructor
@@ -569,7 +569,7 @@ local void *construct_TEMPLATE(void)
 
   //call the class 'constructor'
 
-  self->object_id = TEMPLATEs->register_object(TEMPLATEs, self);
+  self->object_id = TEMPLATE_class->register_object(TEMPLATE_class, self);
 
   //construct other parts of the object
 
@@ -594,7 +594,7 @@ local void destroy_TEMPLATE(void *self)
 
   //call the class 'destructor'
 
-  TEMPLATEs->deregister_object(TEMPLATEs, self);
+  TEMPLATE_class->deregister_object(TEMPLATE_class, self);
 }
 
 //the object iterator
@@ -608,52 +608,52 @@ local int iterate_TEMPLATE(void *self)
   return(0);
 }
 
-void test_TEMPLATEs(void)
+void test_TEMPLATE_class(void)
 {
   //initialize the class 
 
-  TEMPLATEs = init_class(3, construct_TEMPLATE, destroy_TEMPLATE,
-                          iterate_TEMPLATE);
+  TEMPLATE_class = init_class(3, construct_TEMPLATE, destroy_TEMPLATE,
+                              iterate_TEMPLATE);
 
-  TEMPLATE_t *a = TEMPLATEs->objects_ctor();
+  TEMPLATE_t *a = TEMPLATE_class->objects_ctor();
 
   a->printf_object(a);
 
-  TEMPLATE_t *b = TEMPLATEs->objects_ctor();
+  TEMPLATE_t *b = TEMPLATE_class->objects_ctor();
 
   b->printf_object(b);
 
-  TEMPLATE_t *c = TEMPLATEs->objects_ctor();
+  TEMPLATE_t *c = TEMPLATE_class->objects_ctor();
 
   c->printf_object(c);
 
   PRINTF("iterate from a to c\n");
 
-  iterate_class(TEMPLATEs);
+  iterate_class(TEMPLATE_class);
 
-  TEMPLATEs->objects_dtor(a);
+  TEMPLATE_class->objects_dtor(a);
 
   PRINTF("a has been destroyed, b and c should be left\n");
 
-  iterate_class(TEMPLATEs);
+  iterate_class(TEMPLATE_class);
 
-  TEMPLATE_t *d = TEMPLATEs->objects_ctor();
+  TEMPLATE_t *d = TEMPLATE_class->objects_ctor();
   
   PRINTF("d has been added, iterate from b to d\n");
 
-  iterate_class(TEMPLATEs);
+  iterate_class(TEMPLATE_class);
 
-  TEMPLATEs->objects_dtor(c);
+  TEMPLATE_class->objects_dtor(c);
 
   PRINTF("c has been destroyed, b and d should be left\n");
 
-  iterate_class(TEMPLATEs);
+  iterate_class(TEMPLATE_class);
 
-  TEMPLATE_t *e = TEMPLATEs->objects_ctor();
+  TEMPLATE_t *e = TEMPLATE_class->objects_ctor();
   
   PRINTF("e has been added\n");
 
-  iterate_class(TEMPLATEs);
+  iterate_class(TEMPLATE_class);
 }
 ```
 ## Here is a complete example that combines GWO with another great C library: cJSON
@@ -709,7 +709,7 @@ typedef struct state
 //the game state is maintained in a cJSON object
 //with the following fields
 
-class_t *state_objects;
+class_t *state_class;
 
 //the object printer
 
@@ -1051,7 +1051,7 @@ local void *construct_state(void)
   
   MALLOC(self, state_t, 1)
 
-  self->object_id = state_objects->register_object(state_objects, self);
+  self->object_id = state_class->register_object(state_class, self);
 
   self->cjson_object = cJSON_CreateObject();
 
@@ -1125,7 +1125,7 @@ local void destroy_state(void *self)
 
   cJSON_Delete(my_state->cjson_object);
 
-  state_objects->deregister_object(state_objects, self);
+  state_class->deregister_object(state_class, self);
 }
 
 
@@ -1142,15 +1142,15 @@ local int iterate_state(void *self)
   return(0);
 }
 
-void init_states(void)
+void init_state_class(void)
 {
-  state_objects = init_class(32, construct_state, destroy_state,
+  state_class = init_class(32, construct_state, destroy_state,
                              iterate_state);
 }
 
-void test_states(void)
+void test_state_class(void)
 {
-  state_t *a = state_objects->objects_ctor();
+  state_t *a = state_class->objects_ctor();
 
   a->set_starting_position(a, "[FEN \"W:W28,31,32,35,36,37,38,39,40,42,43,45,47:B3,7,8,11,12,13,15,19,20,21,23,26,29.\"]");
 
@@ -1166,15 +1166,15 @@ void test_states(void)
 
   a->pop_move(a);
 
-  state_t *b = state_objects->objects_ctor();
+  state_t *b = state_class->objects_ctor();
 
-  iterate_class(state_objects);
+  iterate_class(state_class;
 }
 
 
 ```
 
-You call init_states() once from main(). The output of test_states() is:
+You call init_state_class() once from main(). The output of test_state_class() is:
 
 ```
 state={"event":"2022.12.28 10:26:02","date":"2022.12.28","white":"White","black":"Black","result":"*","FEN":"[FEN \"W:W28,31,32,35,36,37,38,39,40,42,43,45,47:B3,7,8,11,12,13,15,19,20,21,23,26,29.\"]","moves":[{"move_string":"31-26"},{"move_string":"17-22","comment_string":"{only move}"}],"depth":32,"time":10}
