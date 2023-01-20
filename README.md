@@ -392,7 +392,6 @@ void iterate_class(class_t *self)
  
   BUG(nerrors > 0)
 }
-
 ```
 ## Here is a basic example
 ```
