@@ -687,7 +687,7 @@ void test_TEMPLATE_class(void)
 
 ```
 //.h
-//states.c
+//states.c tracks the game state
 
 typedef struct state
 {
