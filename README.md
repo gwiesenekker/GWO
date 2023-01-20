@@ -139,7 +139,7 @@ struct
   int undo[MOVES_MAX];
   char move_string[LINE_MAX];
   
-  char * (*move2string)(struct moves *, int); //pointer to 'method'
+  char *(*move2string)(struct moves *, int); //pointer to 'method'
 } moves_t;
 ```
 
