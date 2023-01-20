@@ -69,7 +69,7 @@ for (int imove = 0; imove < nmoves; imove++)
 As a  first improvement we can consolidate these arrays and  variables into a struct:
 
 ```
-struct 
+struct
 {
   move_t moves[MOVES_MAX];
   int nmoves;
@@ -132,14 +132,14 @@ for (int imove = 0; imove < moves.nmoves; imove++)
 Let us now add OO-like methods to the moves_struct to get rid of these references to struct-local variables. The way to do this is to work with function pointers:
 
 ```
-struct 
+struct moves_s
 {
   move_t moves[MOVES_MAX];
   int nmoves;
   int undo[MOVES_MAX];
   char move_string[LINE_MAX];
   
-  char *(*move2string)(struct moves *, int); //pointer to 'method'
+  char *(*move2string)(struct moves_s *, int); //pointer to 'method'
 } moves_t;
 ```
 
@@ -524,6 +524,35 @@ void test_my_object_class(void)
   iterate_class(my_object_class);
 }
 
+```
+The output of test_my_object_class() is:
+```
+printing my_object object_id=0
+object_stamp=11:20:44-20/01/2023
+printing my_object object_id=1
+object_stamp=11:20:44-20/01/2023
+printing my_object object_id=2
+object_stamp=11:20:44-20/01/2023
+iterate from a to c
+iterate object_id=0
+iterate object_id=1
+iterate object_id=2
+destroying my_object object_id=0
+a has been destroyed, b and c should be left
+iterate object_id=1
+iterate object_id=2
+d has been added, iterate from b to d
+iterate object_id=1
+iterate object_id=2
+iterate object_id=3
+destroying my_object object_id=2
+c has been destroyed, b and d should be left
+iterate object_id=1
+iterate object_id=3
+e has been added
+iterate object_id=1
+iterate object_id=3
+iterate object_id=4
 ```
 ## Here is a TEMPLATE you can copy. Just change TEMPLATE to the name of the object and start coding!
 ```
